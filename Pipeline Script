@@ -1,0 +1,33 @@
+node{
+   stage('SCM Checkout'){
+       git 'https://github.com/Kanimozhi26/Setting-Up-Jenkins-Pipeline-to-Deploy-Docker-Swarm'
+   }
+   stage('Mvn Package'){
+     def mvnHome = tool name: 'maven-3', type: 'maven'
+     def mvnCMD = "${mvnHome}/bin/mvn"
+     sh "${mvnCMD} clean package"
+   }
+
+ stage('Initialize'){
+        def dockerHome = tool 'myDocker'
+        env.PATH = "${dockerHome}/bin:${env.PATH}"
+    }
+
+
+   stage('Build Docker Image'){
+    sh 'docker build -t kanimozhimahendran/push-example .'
+   }
+   stage('Push Docker Image'){
+       withCredentials([string(credentialsId: 'docker-pwd', variable: 'dockerHubPwd')]) {
+      sh "docker login -u kanimozhimahendran -p ${dockerHubPwd}"
+    }
+    sh 'docker push kanimozhimahendran/puh-example'
+   }
+   
+   stage('Run Container on Dev Server'){
+     def dockerRun = 'docker run -p 8091:8080 -d --name myweb kanimozhimahendran/push-example'
+     sshagent(['p4-server']) {
+     sh "ssh -o StrictHostKeyChecking=no ec2-user@172.31.18.198 ${dockerRun}"
+    }
+   }
+}
